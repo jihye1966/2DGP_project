@@ -616,9 +616,9 @@ class Stage2(StageBase):
     BACKGROUND_S22 = "stage2-2.png"
     BACKGROUND_S22_GAP = "stage2_2.png"
     GROUND_BY_BACKGROUND = {
-        BACKGROUND_S21: 170,
-        BACKGROUND_S22: 205,
-        BACKGROUND_S22_GAP: 205,
+        BACKGROUND_S21: 185,
+        BACKGROUND_S22: 225,
+        BACKGROUND_S22_GAP: 225,
     }
     RETRY_RECT = (430, 275, 850, 445)
     GAP_LEFT = 500
@@ -662,7 +662,7 @@ class Stage2(StageBase):
         self.e_icon = self.images["e_icon_no_yellow_no_sword.png"]
         self.player = Player(80, self.ground_y)
         self.beast = None
-        self._enter_section(self.S21_FLOWER, reset_player=False)
+        self._enter_section(self.S21_FLOWER)
 
     def _load_background(self, filename):
         root = os.path.dirname(__file__)
@@ -945,7 +945,7 @@ class Stage2(StageBase):
         self.caught = False
         self.interaction_requested = False
         self.beast = None
-        self._enter_section(self.S21_FLOWER)
+        self._enter_section(self.S22_CHASE_START)
 
     def _draw_background(self):
         self.background.draw(
