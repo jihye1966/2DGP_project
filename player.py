@@ -119,6 +119,10 @@ class Player:
         self._advance_animation(dt)
 
     def _advance_animation(self, dt):
+        if self.state == PlayerState.IDLE:
+            self.frame = 0
+            self.frame_time = 0.0
+            return
         frame_count = self.SHEET_COLUMNS
         self.frame_time += dt
         interval = 1.0 / self.ANIMATION_SPEEDS[self.state]
