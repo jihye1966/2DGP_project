@@ -423,11 +423,20 @@ class MushroomPlatform(Platform):
 class ObstaclePlatform(Platform):
     """Stage 2 추격 구간의 그루터기와 바위."""
 
-    def __init__(self, image, center_x, ground_y, width=150, height=150):
+    def __init__(
+        self,
+        image,
+        center_x,
+        ground_y,
+        width=120,
+        height=120,
+        collision_width=105,
+        collision_height=95,
+    ):
         super().__init__(
-            center_x - width / 2,
-            center_x + width / 2,
-            ground_y + height,
+            center_x - collision_width / 2,
+            center_x + collision_width / 2,
+            ground_y + collision_height,
             image,
             width,
             height,
