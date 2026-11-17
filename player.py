@@ -1,4 +1,4 @@
-"""캐릭터 입력, 물리, 충돌 박스와 7x7 스프라이트 애니메이션."""
+"""캐릭터 입력, 물리, 충돌 박스와 4x7 스프라이트 애니메이션."""
 
 import os
 from enum import Enum
@@ -20,7 +20,16 @@ class PlayerState(Enum):
 
 class Player:
     SHEET_COLUMNS = 7
-    SHEET_ROWS = 7
+    SHEET_ROWS = 4
+    ANIMATION_ROWS = {
+        PlayerState.IDLE: 0,
+        PlayerState.WALK: 1,
+        PlayerState.RUN: 2,
+        PlayerState.JUMP: 3,
+        PlayerState.FALL: 3,
+        PlayerState.SLIDE: 3,
+        PlayerState.CROUCH: 3,
+    }
     ANIMATION_SPEEDS = {
         PlayerState.IDLE: 5.0,
         PlayerState.WALK: 9.0,
@@ -31,7 +40,7 @@ class Player:
         PlayerState.CROUCH: 5.0,
     }
 
-    def __init__(self, x, ground_y, sheet_name="character_sheet1_transparent.png"):
+    def __init__(self, x, ground_y, sheet_name="character_sheet1.png"):
         self.x = float(x)
         self.y = float(ground_y)
         self.ground_y = float(ground_y)
@@ -132,7 +141,7 @@ class Player:
             self.frame_time -= steps * interval
 
     def draw(self):
-        row = self.state.value
+        row = self.ANIMATION_ROWS[self.state]
         left = round(self.frame * self.sheet_width / self.SHEET_COLUMNS)
         right = round((self.frame + 1) * self.sheet_width / self.SHEET_COLUMNS)
         top = self.sheet_height - round(row * self.sheet_height / self.SHEET_ROWS)
