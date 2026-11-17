@@ -1,4 +1,4 @@
-"""캐릭터 입력, 물리, 충돌 박스와 4x7 스프라이트 애니메이션."""
+"""캐릭터 입력, 물리, 충돌 박스와 4x8 스프라이트 애니메이션."""
 
 import os
 from enum import Enum
@@ -19,7 +19,7 @@ class PlayerState(Enum):
 
 
 class Player:
-    SHEET_COLUMNS = 7
+    SHEET_COLUMNS = 8
     SHEET_ROWS = 4
     ANIMATION_ROWS = {
         PlayerState.IDLE: 0,
