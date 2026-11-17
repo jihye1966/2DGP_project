@@ -90,6 +90,10 @@ START/EXIT 버튼을 표시한다. START를 누르면 UI를 숨기고 문 열림
 
 - `character_normal_8x5_200px.png`: 밝은 숲용 8×5 캐릭터 시트(Idle, Walk, Run, Jump, Slide)
 - `character_dark_matched_8x5_200px.png`: 어두운 숲용 8×5 캐릭터 시트(추후 Stage 2부터 사용)
+- `stage1_forest_color_matched.png`: Stage 1 공용 평화로운 숲 배경
+- `ui_movement_compact.png`, `ui_actions_compact.png`: Stage 1 PART별 조작 안내
+- `tutorial_flat_top_rock.png`: Stage 1 PART 2 착지 가능한 바위
+- `bush_compact_fixed_330x160.png`, `bush_hide_bright_8frames_4x2_330x160.png`: 추후 상호작용/숨기 연출
 - `logo.png`, `start.png`, `exit.png`, `title_ui_transparent.png`
 - `title_original.png`: 1672×941 타이틀 배경
 - `cottage_overlay_preview.jpg`: 문 연출 미리보기(최종 합성용 투명 프레임 아님)
@@ -123,7 +127,7 @@ START/EXIT 버튼을 표시한다. START를 누르면 UI를 숨기고 문 열림
 | 3 | 오두막 등장 연출 | `title.py`, 투명 오버레이 16장 | 시간 기반 재생 | 프레임 순서/좌표 | 구현 중 |
 | 4 | 기본 이동/상태 | `player.py`, 캐릭터 시트 | 이동·애니메이션 | 키 입력/착지 | 테스트 완료 |
 | 5 | Stage 1 진입 | `playmode.py` | 화면 끝에서 1회 전환 | 전환 중복 확인 | 테스트 완료 |
-| 6 | Stage 1 채집/장애물 | Stage 1 리소스 | E키 채집과 충돌 | 상호작용 | 미구현 |
+| 6 | Stage 1 PART 1/2 튜토리얼 | Stage 1 배경·UI·바위 | PART 전환, 이동 안내, 바위 착지 | 입력/플랫폼 충돌 | 구현 중 |
 | 7 | Stage 2 이동 기믹 | Stage 2 리소스 | 슬라이드/덩굴/발판 | 기믹 회귀 | 미구현 |
 | 8 | 꽃 괴수 추격 | 적 리소스 | 추격/체크포인트 | 피격 복귀 | 미구현 |
 | 9 | Stage 3 잠입 | 호수/엄폐 리소스 | 시야와 웅크리기 | 발각/회피 | 미구현 |
@@ -150,3 +154,4 @@ START/EXIT 버튼을 표시한다. START를 누르면 UI를 숨기고 문 열림
 - 2026-11-17: IDLE 애니메이션을 0번 프레임 고정으로 변경했다. 정지 중 프레임별 발 위치 차이로 캐릭터가 뒤로 이동하는 것처럼 보이던 문제를 제거하고, Walk/Run 등 이동 상태의 반복 애니메이션은 유지한다.
 - 2026-11-17: Walk는 양끝 정자세인 0번·7번 프레임을 제외한 1~6번 프레임만 반복하고, Run 재생 속도를 20fps로 높였다. Title IDLE에서도 Space 점프와 이동 중 Ctrl 슬라이드 입력을 전달한다.
 - 2026-11-17: 점프 중에도 방향키의 수평 이동을 처리해 방향키와 Space를 동시에 누르는 이동 점프를 지원한다.
+- 2026-11-17: Stage 1을 PART 1 Movement Tutorial과 PART 2 Action Tutorial로 분리하고 공용 배경, PART별 UI, PART 2 바위 플랫폼 및 E 상호작용 요청 구조를 추가했다.

@@ -94,6 +94,11 @@ class Player:
         if key in (SDLK_LCTRL, SDLK_RCTRL) and self.state == PlayerState.SLIDE:
             self.state = PlayerState.IDLE
 
+    def consume_interaction(self):
+        requested = self.interaction_requested
+        self.interaction_requested = False
+        return requested
+
     def jump(self):
         if self.on_ground and self.state != PlayerState.CROUCH:
             self.velocity_y = self.jump_speed
