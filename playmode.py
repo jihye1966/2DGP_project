@@ -6,6 +6,7 @@ from pico2d import (
     SDLK_e,
     SDLK_ESCAPE,
     SDLK_r,
+    SDL_MOUSEBUTTONDOWN,
     SDL_KEYDOWN,
     SDL_KEYUP,
     draw_rectangle,
@@ -322,7 +323,7 @@ class Platform:
 
 
 class FlowerPlatform(Platform):
-    """꽃 발판 리소스가 추가되면 image를 연결할 수 있는 개폐 발판."""
+    """E키로 활성화되는 꽃 발판."""
 
     PERIOD = 1.6
     OPEN_TIME = 0.8
@@ -330,13 +331,26 @@ class FlowerPlatform(Platform):
     def __init__(self, left, right, top):
         super().__init__(left, right, top)
         self.time = 0.0
+        self.active = False
+        self.used = False
 
     @property
     def opened(self):
-        return self.time % self.PERIOD < self.OPEN_TIME
+        return self.active and self.time % self.PERIOD < self.OPEN_TIME
+
+    def activate(self):
+        if not self.active:
+            self.active = True
+            self.time = 0.0
 
     def update(self, dt):
-        self.time += dt
+        if self.active:
+            self.time += dt
+
+    def reset(self):
+        self.time = 0.0
+        self.active = False
+        self.used = False
 
 
 class MushroomPlatform(Platform):
@@ -348,6 +362,7 @@ class MushroomPlatform(Platform):
         self.frame = 0
         self.frame_time = 0.0
         self.bouncing = False
+        self.active = False
 
     def update(self, dt):
         if not self.bouncing:
@@ -360,9 +375,25 @@ class MushroomPlatform(Platform):
                 self.bouncing = False
 
     def bounce(self):
+        if not self.active or self.bouncing:
+            return False
+        self.active = False
         self.bouncing = True
         self.frame = 4
         self.frame_time = 0.0
+        return True
+
+    def activate(self):
+        if not self.active and not self.bouncing:
+            self.active = True
+            return True
+        return False
+
+    def reset(self):
+        self.frame = 0
+        self.frame_time = 0.0
+        self.bouncing = False
+        self.active = False
 
     def draw(self):
         column = self.frame % self.COLUMNS
@@ -380,6 +411,30 @@ class MushroomPlatform(Platform):
             "",
             self.center_x,
             self.top - self.height / 2,
+            self.width,
+            self.height,
+        )
+
+
+class ObstaclePlatform(Platform):
+    """Stage 2 추격 구간의 그루터기와 바위."""
+
+    def __init__(self, image, center_x, ground_y, width=150, height=105):
+        super().__init__(
+            center_x - width / 2,
+            center_x + width / 2,
+            ground_y + height,
+            image,
+            width,
+            height,
+            center_x,
+        )
+        self.bottom = ground_y
+
+    def draw(self):
+        self.image.draw(
+            self.center_x,
+            self.bottom + self.height / 2,
             self.width,
             self.height,
         )
@@ -536,40 +591,59 @@ class VineBarrier:
 
 
 class Stage2(StageBase):
-    """Stage 2-1 탐험과 Stage 2-2 꽃 괴수 추격."""
+    """6개 구간으로 구성된 Stage 2 진행 모드."""
 
-    EXPLORE_FLOWER = 1
-    EXPLORE_MUSHROOM = 2
-    CHASE = 3
-    BACKGROUND_1 = "stage2-1.png"
-    BACKGROUND_2 = "stage2-2.png"
+    S21_FLOWER = 1
+    S21_MUSHROOM = 2
+    S22_CHASE_START = 3
+    S22_CHASE_CONTINUE = 4
+    S22_MUSHROOM_GAP = 5
+    S22_FLOWER_GAP = 6
+    BACKGROUND_S21 = "stage2-1.png"
+    BACKGROUND_S22 = "stage2-2.png"
+    BACKGROUND_S22_GAP = "stage2_2.png"
+    RETRY_RECT = (430, 275, 850, 445)
+    GAP_LEFT = 500
+    GAP_RIGHT = 900
 
     def __init__(self):
         super().__init__()
-        self.section = self.EXPLORE_FLOWER
+        self.section = self.S21_FLOWER
         self.background = None
+        self.background_scale = 1.0
+        self.background_left = 0.0
+        self.background_bottom = 0.0
         self.flower = None
         self.mushroom = None
+        self.obstacles = []
         self.beast = None
         self.vine = None
         self.barrier = None
         self.e_icon = None
-        self.high_rock = None
-        self.checkpoint_x = 80
+        self.images = {}
         self.dead = False
+        self.caught = False
         self.retry_requested = False
         self.interaction_requested = False
-        self.caught = False
-        self.stage_transitioned = False
+        self.section_transitioned = False
 
     def init(self):
-        self._load_background("stage2-1.png")
         root = os.path.dirname(__file__)
-        self.e_icon = load_image(os.path.join(root, "e_icon_no_yellow_no_sword.png"))
-        mushroom_image = load_image(os.path.join(root, "mushroom.png"))
-        self.mushroom = MushroomPlatform(mushroom_image, 720, self.ground_y + 100)
-        self.flower = FlowerPlatform(620, 820, self.ground_y + 80)
+        for name in (
+            "e_icon_no_yellow_no_sword.png",
+            "mushroom.png",
+            "flower_beast_animation.png",
+            "long_hanging_vines.png",
+            "vine_barrier_original.png",
+            "vine_cut_4x2_640px.png",
+            "high_rock.png",
+            "high_stump.png",
+        ):
+            self.images[name] = load_image(os.path.join(root, name))
+        self.e_icon = self.images["e_icon_no_yellow_no_sword.png"]
         self.player = Player(80, self.ground_y)
+        self.beast = None
+        self._enter_section(self.S21_FLOWER, reset_player=False)
 
     def _load_background(self, filename):
         root = os.path.dirname(__file__)
@@ -578,28 +652,95 @@ class Stage2(StageBase):
             game_framework.SCREEN_WIDTH / self.background.w,
             game_framework.SCREEN_HEIGHT / self.background.h,
         )
-        self.background_left = (game_framework.SCREEN_WIDTH - self.background.w * self.background_scale) / 2
-        self.background_bottom = (game_framework.SCREEN_HEIGHT - self.background.h * self.background_scale) / 2
+        self.background_left = (
+            game_framework.SCREEN_WIDTH - self.background.w * self.background_scale
+        ) / 2
+        self.background_bottom = (
+            game_framework.SCREEN_HEIGHT - self.background.h * self.background_scale
+        ) / 2
 
-    def _load_chase(self):
+    def _enter_section(self, section, reset_player=True):
+        self.section = section
+        self.section_transitioned = False
+        self.flower = None
+        self.mushroom = None
+        self.obstacles = []
+        self.vine = None
+        self.barrier = None
+        self._load_background(self._background_for(section))
+        if section == self.S21_FLOWER:
+            self.flower = FlowerPlatform(650, 820, self.ground_y + 80)
+        elif section == self.S21_MUSHROOM:
+            self.mushroom = MushroomPlatform(
+                self.images["mushroom.png"], 720, self.ground_y + 100
+            )
+        elif section in (self.S22_CHASE_START, self.S22_CHASE_CONTINUE):
+            if self.beast is None:
+                self.beast = FlowerBeast(
+                    self.images["flower_beast_animation.png"], 170, self.ground_y
+                )
+            elif self.beast.state in ("dormant", "dead"):
+                self.beast.state = "chasing"
+                self.beast.frame = 0
+            self.vine = HangingVine(
+                self.images["long_hanging_vines.png"],
+                480 if section == self.S22_CHASE_START else 380,
+                self.ground_y,
+            )
+            self.obstacles = self._chase_obstacles(section)
+            if section == self.S22_CHASE_CONTINUE:
+                self.barrier = VineBarrier(
+                    self.images["vine_barrier_original.png"],
+                    self.images["vine_cut_4x2_640px.png"],
+                    1160,
+                    self.ground_y,
+                )
+        elif section == self.S22_MUSHROOM_GAP:
+            self.mushroom = MushroomPlatform(
+                self.images["mushroom.png"], 430, self.ground_y + 100
+            )
+            self.obstacles = self._gap_side_obstacles()
+        elif section == self.S22_FLOWER_GAP:
+            self.flower = FlowerPlatform(690, 850, self.ground_y + 80)
+            self.obstacles = self._gap_side_obstacles()
+        if reset_player:
+            self._reset_player(80)
+        self.held_keys.clear()
+
+    def _background_for(self, section):
+        if section in (self.S21_FLOWER, self.S21_MUSHROOM):
+            return self.BACKGROUND_S21
+        if section in (self.S22_CHASE_START, self.S22_CHASE_CONTINUE):
+            return self.BACKGROUND_S22
+        return self.BACKGROUND_S22_GAP
+
+    def _chase_obstacles(self, section):
         root = os.path.dirname(__file__)
-        self._load_background(self.BACKGROUND_2)
-        self.beast = FlowerBeast(load_image(os.path.join(root, "flower_beast_animation.png")), 190, self.ground_y)
-        self.vine = HangingVine(load_image(os.path.join(root, "long_hanging_vines.png")), 650, self.ground_y)
-        self.barrier = VineBarrier(
-            load_image(os.path.join(root, "vine_barrier_original.png")),
-            load_image(os.path.join(root, "vine_cut_4x2_640px.png")),
-            1160,
-            self.ground_y,
-        )
-        self.mushroom = MushroomPlatform(load_image(os.path.join(root, "mushroom.png")), 780, self.ground_y + 100)
-        self.flower = FlowerPlatform(930, 1080, self.ground_y + 80)
-        self.player.x = 80
+        if section == self.S22_CHASE_START:
+            return [
+                ObstaclePlatform(self.images["high_stump.png"], 680, self.ground_y),
+                ObstaclePlatform(self.images["high_rock.png"], 900, self.ground_y),
+            ]
+        return [
+            ObstaclePlatform(self.images["high_rock.png"], 600, self.ground_y),
+            ObstaclePlatform(self.images["high_stump.png"], 820, self.ground_y),
+        ]
+
+    def _gap_side_obstacles(self):
+        return [
+            ObstaclePlatform(self.images["high_rock.png"], 260, self.ground_y),
+            ObstaclePlatform(self.images["high_stump.png"], 1080, self.ground_y),
+        ]
+
+    def _reset_player(self, x):
+        self.player.x = x
         self.player.y = self.ground_y
         self.player.ground_y = self.ground_y
+        self.player.velocity_y = 0.0
         self.player.on_ground = True
-        self.checkpoint_x = 80
-        self.held_keys.clear()
+        self.player.state = PlayerState.IDLE
+        self.player.frame = 0
+        self.player.frame_time = 0.0
 
     def handle_events(self, events):
         for event in events:
@@ -615,7 +756,11 @@ class Stage2(StageBase):
             elif event.type == SDL_KEYUP:
                 self.held_keys.discard(event.key)
                 self.player.handle_key_up(event.key)
-        if self.player.consume_interaction():
+            elif event.type == SDL_MOUSEBUTTONDOWN and event.button == 1:
+                click_y = game_framework.SCREEN_HEIGHT - event.y
+                if self.dead and self._retry_button_contains(event.x, click_y):
+                    self.retry_requested = True
+        if not self.dead and not self.caught and self.player.consume_interaction():
             self.interaction_requested = True
 
     def update(self):
@@ -630,59 +775,76 @@ class Stage2(StageBase):
                 self.caught = False
                 self.dead = True
             return
-        if self.section in (self.EXPLORE_FLOWER, self.EXPLORE_MUSHROOM):
-            self._update_exploration(dt)
-        else:
-            self._update_chase(dt)
-
-    def _update_exploration(self, dt):
-        self.flower.update(dt)
-        self.mushroom.update(dt)
-        platforms = [self.flower] if self.section == self.EXPLORE_FLOWER else [self.mushroom]
-        self._update_player_on_platforms(dt, platforms)
-        if self.section == self.EXPLORE_FLOWER and self.player.x >= 1240:
-            self.section = self.EXPLORE_MUSHROOM
-            self.player.x = 80
-            self.held_keys.clear()
-        elif self.section == self.EXPLORE_MUSHROOM and self.player.x >= 1240:
-            self.section = self.CHASE
-            self._load_chase()
-
-    def _update_chase(self, dt):
-        self.flower.update(dt)
-        self.mushroom.update(dt)
-        self.barrier.update(dt)
-        self.beast.update(dt, self.player.x)
-        self._update_player_on_platforms(dt, [self.flower, self.mushroom])
-        if self.beast.state == "dormant" and self.player.x >= 300:
+        self._activate_nearby_platform()
+        if self.flower is not None:
+            self.flower.update(dt)
+        if self.mushroom is not None:
+            self.mushroom.update(dt)
+        if self.barrier is not None:
+            self.barrier.update(dt)
+        if self.beast is not None:
+            self.beast.update(dt, self.player.x)
+        platforms = self._active_platforms()
+        self._update_player_world(dt, platforms)
+        if self.beast is not None and self.beast.state == "dormant" and self.player.x >= 300:
             self.beast.trigger()
-        if self.beast.state == "chasing" and abs(self.beast.x - self.player.x) < 55:
+        if (
+            self.beast is not None
+            and self.beast.state == "chasing"
+            and abs(self.beast.x - self.player.x) < 55
+        ):
             self.beast.attack()
             self.caught = True
-        if self.interaction_requested:
-            if self.barrier.can_interact(self.player.x):
-                self.barrier.start_cut()
-            self.interaction_requested = False
-        if self.barrier.blocks(self.player.x):
+        if self.vine is not None and self.vine.blocks(self.player):
+            self.player.x = self.vine.x - 75
+        if self.barrier is not None and self.barrier.blocks(self.player.x):
             self.player.x = self.barrier.x - 95
-        if self.player.x >= 1260 and self.barrier.cut and not self.stage_transitioned:
-            self.stage_transitioned = True
-            game_framework.change_mode(Stage3())
+        self._advance_section_if_needed()
 
-    def _update_player_on_platforms(self, dt, platforms):
-        if self.barrier is not None and self.barrier.cutting:
+    def _activate_nearby_platform(self):
+        if not self.interaction_requested:
             return
+        self.interaction_requested = False
+        if self.barrier is not None and self.barrier.can_interact(self.player.x):
+            self.barrier.start_cut()
+            return
+        target = self.flower if self.flower is not None else self.mushroom
+        if target is None or abs(self.player.x - target.center_x) > 220:
+            return
+        if isinstance(target, FlowerPlatform):
+            target.activate()
+        elif target.activate():
+            target.bounce()
+            self.player.on_ground = False
+            self.player.ground_y = -10000
+            self.player.velocity_y = 900.0
+            self.player.state = PlayerState.JUMP
+
+    def _active_platforms(self):
+        platforms = list(self.obstacles)
+        if self.flower is not None:
+            platforms.append(self.flower)
+        if self.mushroom is not None:
+            platforms.append(self.mushroom)
+        return platforms
+
+    def _update_player_world(self, dt, platforms):
         previous_y = self.player.y
-        for platform in platforms:
-            if isinstance(platform, FlowerPlatform) and not platform.opened:
-                continue
-            if self.player.on_ground and platform.supports(self.player.x) and self.player.y >= platform.top - 1:
-                self.player.ground_y = platform.top
-                break
-        else:
-            self.player.ground_y = self.ground_y
-            if self.player.on_ground and self._in_gap(self.player.x):
+        gap = self._in_gap(self.player.x)
+        support = None
+        if self.player.on_ground and not gap:
+            for platform in platforms:
+                if isinstance(platform, FlowerPlatform) and not platform.opened:
+                    continue
+                if platform.supports(self.player.x) and self.player.y >= platform.top - 1:
+                    support = platform
+                    break
+        if gap and support is None:
+            if self.player.on_ground:
                 self.player.on_ground = False
+            self.player.ground_y = -10000
+        else:
+            self.player.ground_y = support.top if support is not None else self.ground_y
         self.player.update(dt, self.held_keys, min_x=35, max_x=1270)
         for platform in platforms:
             if isinstance(platform, FlowerPlatform) and not platform.opened:
@@ -698,35 +860,71 @@ class Stage2(StageBase):
                 self.player.ground_y = platform.top
                 self.player.velocity_y = 0.0
                 self.player.on_ground = True
-                if isinstance(platform, MushroomPlatform):
-                    platform.bounce()
-                    self.player.velocity_y = 900.0
                 break
-        if self.player.on_ground and self.player.ground_y != self.ground_y:
-            if not any(platform.supports(self.player.x) for platform in platforms):
-                self.player.ground_y = self.ground_y
-                self.player.y = self.ground_y
-        if self.player.y < self.ground_y - 80:
-            self._retry()
+        self._resolve_obstacle_sides(platforms)
+        if gap and self.player.y < self.ground_y - 80:
+            self._mark_dead()
+        elif not gap and self.player.y < self.ground_y - 80:
+            self.player.y = self.ground_y
+            self.player.ground_y = self.ground_y
+            self.player.velocity_y = 0.0
+            self.player.on_ground = True
+
+    def _resolve_obstacle_sides(self, platforms):
+        box_left, _, box_right, box_top = self.player.collision_box
+        for platform in platforms:
+            if not isinstance(platform, ObstaclePlatform):
+                continue
+            overlaps = (
+                box_right > platform.left
+                and box_left < platform.right
+                and box_top > platform.bottom
+                and self.player.y < platform.top
+            )
+            if overlaps:
+                if self.player.x < platform.center_x:
+                    self.player.x = platform.left - 26
+                else:
+                    self.player.x = platform.right + 26
+
+    def _advance_section_if_needed(self):
+        if self.section_transitioned or self.player.collision_box[2] < game_framework.SCREEN_WIDTH:
+            return
+        self.section_transitioned = True
+        next_section = {
+            self.S21_FLOWER: self.S21_MUSHROOM,
+            self.S21_MUSHROOM: self.S22_CHASE_START,
+            self.S22_CHASE_START: self.S22_CHASE_CONTINUE,
+            self.S22_CHASE_CONTINUE: self.S22_MUSHROOM_GAP,
+            self.S22_MUSHROOM_GAP: self.S22_FLOWER_GAP,
+        }.get(self.section)
+        if next_section is None:
+            game_framework.change_mode(Stage3())
+            return
+        self._enter_section(next_section)
 
     def _in_gap(self, x):
-        return 560 < x < 850
+        return self.section in (self.S22_MUSHROOM_GAP, self.S22_FLOWER_GAP) and self.GAP_LEFT < x < self.GAP_RIGHT
+
+    def _mark_dead(self):
+        self.dead = True
+        self.held_keys.clear()
+        self.player.on_ground = False
+
+    def _retry_button_contains(self, x, y):
+        left, bottom, right, top = self.RETRY_RECT
+        return left <= x <= right and bottom <= y <= top
 
     def _retry(self):
+        self.retry_requested = False
         self.dead = False
         self.caught = False
-        self.retry_requested = False
-        self.beast = None if self.section != self.CHASE else self.beast
-        self.player.x = self.checkpoint_x
-        self.player.y = self.ground_y
-        self.player.ground_y = self.ground_y
-        self.player.velocity_y = 0.0
-        self.player.on_ground = True
-        self.held_keys.clear()
-        if self.beast is not None:
-            self.beast.state = "dormant"
-            self.beast.x = 190
-            self.beast.frame = 0
+        self.interaction_requested = False
+        self.beast = None
+        self._enter_section(self.S21_FLOWER)
+        self._reset_player(80)
+        if self.beast is not None and self.beast.state == "chasing":
+            self.beast.x = 140
 
     def _draw_background(self):
         self.background.draw(
@@ -738,27 +936,31 @@ class Stage2(StageBase):
 
     def draw(self):
         self._draw_background()
-        if self.section in (self.EXPLORE_FLOWER, self.CHASE):
+        for obstacle in self.obstacles:
+            obstacle.draw()
+        if self.flower is not None:
             self.flower.draw()
-        if self.section in (self.EXPLORE_MUSHROOM, self.CHASE):
+        if self.mushroom is not None:
             self.mushroom.draw()
-        if self.section == self.CHASE:
+        if self.vine is not None:
             self.vine.draw()
+        if self.barrier is not None:
             self.barrier.draw()
+        if self.beast is not None:
             self.beast.draw()
         if not self.caught and not (self.barrier is not None and self.barrier.cutting):
             self.player.draw()
-        if self.section != self.CHASE:
-            self._draw_e_hint(self.flower if self.section == self.EXPLORE_FLOWER else self.mushroom)
-        elif self.barrier.can_interact(self.player.x) and not self.barrier.cut:
-            self._draw_e_hint(self.barrier)
-        if self.dead:
-            draw_rectangle(430, 335, 850, 405, 255, 255, 255, 220, True)
-            draw_rectangle(430, 335, 850, 405, 255, 255, 255, 255, False)
-
-    def _draw_e_hint(self, target):
-        if self.e_icon is not None and abs(self.player.x - target.center_x) < 220:
+        target = self.barrier
+        if target is None:
+            target = self.flower if self.flower is not None else self.mushroom
+        if target is not None and abs(self.player.x - target.center_x) < 220 and not self.dead:
             self.e_icon.draw(target.center_x, 350, 42, 42)
+        if self.dead:
+            left, bottom, right, top = self.RETRY_RECT
+            draw_rectangle(left, bottom, right, top, 20, 20, 20, 235, True)
+            draw_rectangle(left, bottom, right, top, 255, 255, 255, 255, False)
+            draw_rectangle(535, 305, 745, 385, 180, 50, 50, 255, True)
+            draw_rectangle(535, 305, 745, 385, 255, 255, 255, 255, False)
 
 
 class Stage3(StageBase):
