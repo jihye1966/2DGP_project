@@ -111,6 +111,9 @@ class Player:
         elif right:
             self.facing = 1
 
+        direction = 1 if right else -1 if left else 0
+        horizontal_speed = self.run_speed if SDLK_LSHIFT in held_keys or SDLK_RSHIFT in held_keys else self.speed
+
         if self.on_ground:
             if self.state != PlayerState.CROUCH:
                 if moving and ctrl_held:
@@ -121,11 +124,13 @@ class Player:
                     self.state = PlayerState.WALK
                 else:
                     self.state = PlayerState.IDLE
-            speed = self.run_speed if self.state == PlayerState.RUN else self.speed
+            speed = horizontal_speed
             if self.state in (PlayerState.SLIDE, PlayerState.CROUCH):
                 speed *= 0.65
-            self.x += (1 if right else -1 if left else 0) * speed * dt
+            self.x += direction * speed * dt
         else:
+            # 공중에서도 방향키를 유지하면 수평 이동을 계속한다.
+            self.x += direction * horizontal_speed * dt
             self.velocity_y -= self.gravity * dt
             self.y += self.velocity_y * dt
             self.state = PlayerState.JUMP if self.velocity_y > 0 else PlayerState.FALL
