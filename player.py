@@ -33,11 +33,20 @@ class Player:
     ANIMATION_SPEEDS = {
         PlayerState.IDLE: 5.0,
         PlayerState.WALK: 9.0,
-        PlayerState.RUN: 12.0,
+        PlayerState.RUN: 20.0,
         PlayerState.JUMP: 8.0,
         PlayerState.FALL: 8.0,
         PlayerState.SLIDE: 10.0,
         PlayerState.CROUCH: 5.0,
+    }
+    ANIMATION_FRAME_RANGES = {
+        PlayerState.IDLE: (0, 0),
+        PlayerState.WALK: (1, 6),
+        PlayerState.RUN: (0, 7),
+        PlayerState.JUMP: (0, 7),
+        PlayerState.FALL: (0, 7),
+        PlayerState.SLIDE: (0, 7),
+        PlayerState.CROUCH: (0, 7),
     }
 
     def __init__(self, x, ground_y, sheet_name="character_normal_8x5_200px.png"):
@@ -96,14 +105,17 @@ class Player:
         left = SDLK_a in held_keys or SDLK_LEFT in held_keys
         right = SDLK_d in held_keys or SDLK_RIGHT in held_keys
         moving = left != right
+        ctrl_held = SDLK_LCTRL in held_keys or SDLK_RCTRL in held_keys
         if left:
             self.facing = -1
         elif right:
             self.facing = 1
 
         if self.on_ground:
-            if self.state not in (PlayerState.SLIDE, PlayerState.CROUCH):
-                if moving and (SDLK_LSHIFT in held_keys or SDLK_RSHIFT in held_keys):
+            if self.state != PlayerState.CROUCH:
+                if moving and ctrl_held:
+                    self.state = PlayerState.SLIDE
+                elif moving and (SDLK_LSHIFT in held_keys or SDLK_RSHIFT in held_keys):
                     self.state = PlayerState.RUN
                 elif moving:
                     self.state = PlayerState.WALK
@@ -132,12 +144,15 @@ class Player:
             self.frame = 0
             self.frame_time = 0.0
             return
-        frame_count = self.SHEET_COLUMNS
+        first_frame, last_frame = self.ANIMATION_FRAME_RANGES[self.state]
+        if self.frame < first_frame or self.frame > last_frame:
+            self.frame = first_frame
         self.frame_time += dt
         interval = 1.0 / self.ANIMATION_SPEEDS[self.state]
         if self.frame_time >= interval:
             steps = int(self.frame_time / interval)
-            self.frame = (self.frame + steps) % frame_count
+            frame_count = last_frame - first_frame + 1
+            self.frame = first_frame + (self.frame - first_frame + steps) % frame_count
             self.frame_time -= steps * interval
 
     def draw(self):

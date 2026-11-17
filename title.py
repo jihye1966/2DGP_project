@@ -66,8 +66,12 @@ class Title:
                 if event.key == SDLK_ESCAPE:
                     game_framework.quit()
                 self.held_keys.add(event.key)
+                if self.state == self.IDLE and self.player is not None:
+                    self.player.handle_key_down(event.key)
             elif event.type == SDL_KEYUP:
                 self.held_keys.discard(event.key)
+                if self.state == self.IDLE and self.player is not None:
+                    self.player.handle_key_up(event.key)
 
     def update(self):
         dt = 1.0 / 60.0
