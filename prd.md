@@ -88,8 +88,8 @@ START/EXIT 버튼을 표시한다. START를 누르면 UI를 숨기고 문 열림
 
 ### 현재 보유
 
-- `character_sheet1.png`: 밝은 숲용 4×8 캐릭터 시트(Idle, Walk, Run, Jump-Slide)
-- `character_sheet2.png`: 어두운 숲용 4×8 캐릭터 시트(추후 Stage 2부터 사용)
+- `character_normal_8x5_200px.png`: 밝은 숲용 8×5 캐릭터 시트(Idle, Walk, Run, Jump, Slide)
+- `character_dark_matched_8x5_200px.png`: 어두운 숲용 8×5 캐릭터 시트(추후 Stage 2부터 사용)
 - `logo.png`, `start.png`, `exit.png`, `title_ui_transparent.png`
 - `title_original.png`: 1672×941 타이틀 배경
 - `cottage_overlay_preview.jpg`: 문 연출 미리보기(최종 합성용 투명 프레임 아님)

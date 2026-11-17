@@ -1,4 +1,4 @@
-"""캐릭터 입력, 물리, 충돌 박스와 4x8 스프라이트 애니메이션."""
+"""캐릭터 입력, 물리, 충돌 박스와 5x8 스프라이트 애니메이션."""
 
 import os
 from enum import Enum
@@ -20,15 +20,15 @@ class PlayerState(Enum):
 
 class Player:
     SHEET_COLUMNS = 8
-    SHEET_ROWS = 4
+    SHEET_ROWS = 5
     ANIMATION_ROWS = {
         PlayerState.IDLE: 0,
         PlayerState.WALK: 1,
         PlayerState.RUN: 2,
         PlayerState.JUMP: 3,
         PlayerState.FALL: 3,
-        PlayerState.SLIDE: 3,
-        PlayerState.CROUCH: 3,
+        PlayerState.SLIDE: 4,
+        PlayerState.CROUCH: 4,
     }
     ANIMATION_SPEEDS = {
         PlayerState.IDLE: 5.0,
@@ -40,7 +40,7 @@ class Player:
         PlayerState.CROUCH: 5.0,
     }
 
-    def __init__(self, x, ground_y, sheet_name="character_sheet1.png"):
+    def __init__(self, x, ground_y, sheet_name="character_normal_8x5_200px.png"):
         self.x = float(x)
         self.y = float(ground_y)
         self.ground_y = float(ground_y)
