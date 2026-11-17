@@ -16,6 +16,7 @@ class PlayerState(Enum):
     FALL = 4
     SLIDE = 5
     CROUCH = 6
+    SLIDE_RELEASE = 7
 
 
 class Player:
@@ -29,6 +30,7 @@ class Player:
         PlayerState.FALL: 3,
         PlayerState.SLIDE: 4,
         PlayerState.CROUCH: 4,
+        PlayerState.SLIDE_RELEASE: 4,
     }
     ANIMATION_SPEEDS = {
         PlayerState.IDLE: 5.0,
@@ -38,15 +40,17 @@ class Player:
         PlayerState.FALL: 8.0,
         PlayerState.SLIDE: 10.0,
         PlayerState.CROUCH: 5.0,
+        PlayerState.SLIDE_RELEASE: 10.0,
     }
     ANIMATION_FRAME_RANGES = {
-        PlayerState.IDLE: (0, 0),
+        PlayerState.IDLE: (0, 2),
         PlayerState.WALK: (1, 6),
         PlayerState.RUN: (0, 7),
         PlayerState.JUMP: (0, 7),
         PlayerState.FALL: (0, 7),
-        PlayerState.SLIDE: (0, 7),
+        PlayerState.SLIDE: (3, 5),
         PlayerState.CROUCH: (0, 7),
+        PlayerState.SLIDE_RELEASE: (6, 7),
     }
 
     def __init__(self, x, ground_y, sheet_name="character_normal_8x5_200px.png"):
@@ -74,7 +78,11 @@ class Player:
     @property
     def collision_box(self):
         """발 기준의 충돌 박스. 슬라이드/웅크리기에서는 높이를 줄인다."""
-        height = 58 if self.state in (PlayerState.SLIDE, PlayerState.CROUCH) else 112
+        height = 58 if self.state in (
+            PlayerState.SLIDE,
+            PlayerState.SLIDE_RELEASE,
+            PlayerState.CROUCH,
+        ) else 112
         return (self.x - 26, self.y, self.x + 26, self.y + height)
 
     def handle_key_down(self, key):
@@ -92,7 +100,9 @@ class Player:
         if key == SDLK_s and self.state == PlayerState.CROUCH:
             self.state = PlayerState.IDLE
         if key in (SDLK_LCTRL, SDLK_RCTRL) and self.state == PlayerState.SLIDE:
-            self.state = PlayerState.IDLE
+            self.state = PlayerState.SLIDE_RELEASE
+            self.frame = 6
+            self.frame_time = -1.0 / self.ANIMATION_SPEEDS[PlayerState.SLIDE_RELEASE]
 
     def consume_interaction(self):
         requested = self.interaction_requested
@@ -120,7 +130,7 @@ class Player:
         horizontal_speed = self.run_speed if SDLK_LSHIFT in held_keys or SDLK_RSHIFT in held_keys else self.speed
 
         if self.on_ground:
-            if self.state != PlayerState.CROUCH:
+            if self.state not in (PlayerState.CROUCH, PlayerState.SLIDE_RELEASE):
                 if moving and ctrl_held:
                     self.state = PlayerState.SLIDE
                 elif moving and (SDLK_LSHIFT in held_keys or SDLK_RSHIFT in held_keys):
@@ -130,7 +140,11 @@ class Player:
                 else:
                     self.state = PlayerState.IDLE
             speed = horizontal_speed
-            if self.state in (PlayerState.SLIDE, PlayerState.CROUCH):
+            if self.state in (
+                PlayerState.SLIDE,
+                PlayerState.SLIDE_RELEASE,
+                PlayerState.CROUCH,
+            ):
                 speed *= 0.65
             self.x += direction * speed * dt
         else:
@@ -150,10 +164,6 @@ class Player:
         self._advance_animation(dt)
 
     def _advance_animation(self, dt):
-        if self.state == PlayerState.IDLE:
-            self.frame = 0
-            self.frame_time = 0.0
-            return
         first_frame, last_frame = self.ANIMATION_FRAME_RANGES[self.state]
         if self.frame < first_frame or self.frame > last_frame:
             self.frame = first_frame
@@ -164,6 +174,10 @@ class Player:
             frame_count = last_frame - first_frame + 1
             self.frame = first_frame + (self.frame - first_frame + steps) % frame_count
             self.frame_time -= steps * interval
+            if self.state == PlayerState.SLIDE_RELEASE and self.frame == 6:
+                self.state = PlayerState.IDLE
+                self.frame = 0
+                self.frame_time = 0.0
 
     def draw(self):
         row = self.ANIMATION_ROWS[self.state]

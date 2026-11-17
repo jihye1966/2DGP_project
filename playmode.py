@@ -86,17 +86,26 @@ class Bush:
         self.ground_y = ground_y
         self.frame = 0
         self.frame_time = 0.0
+        self.direction = 1
         self.animating = False
         self.hidden = False
 
     def can_interact(self, player_x):
         return abs(player_x - self.x) <= 150
 
-    def start_hide(self):
-        if not self.animating and not self.hidden:
+    def toggle_visibility(self):
+        if self.animating:
+            return
+        if self.hidden:
+            self.animating = True
+            self.frame = self.COLUMNS * self.ROWS - 1
+            self.frame_time = 0.0
+            self.direction = -1
+        else:
             self.animating = True
             self.frame = 0
             self.frame_time = 0.0
+            self.direction = 1
 
     def update(self, dt):
         if not self.animating:
@@ -105,11 +114,15 @@ class Bush:
         if self.frame_time < self.FRAME_INTERVAL:
             return
         self.frame_time -= self.FRAME_INTERVAL
-        self.frame += 1
+        self.frame += self.direction
         if self.frame >= self.COLUMNS * self.ROWS:
             self.frame = self.COLUMNS * self.ROWS - 1
             self.animating = False
             self.hidden = True
+        elif self.frame < 0:
+            self.frame = 0
+            self.animating = False
+            self.hidden = False
 
     def draw(self):
         if not self.animating:
@@ -192,7 +205,7 @@ class Stage1(StageBase):
         self.bush.update(1.0 / 60.0)
         if self.interaction_requested:
             if self.part == self.PART_ACTION and self.bush.can_interact(self.player.x):
-                self.bush.start_hide()
+                self.bush.toggle_visibility()
             self.interaction_requested = False
         previous_y = self.player.y
         self._prepare_support_surface()
@@ -270,9 +283,9 @@ class Stage1(StageBase):
         if self.bush is None or (not self.bush.animating and not self.bush.hidden):
             self.player.draw()
         if self.part == self.PART_MOVEMENT:
-            self.movement_ui.draw(1120, 555, 156, 186)
+            self.movement_ui.draw(1100, 535, 260, 310)
         else:
-            self.action_ui.draw(1120, 555, 182, 161)
+            self.action_ui.draw(1100, 535, 273, 242)
 
 
 class Stage2(StageBase):
