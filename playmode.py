@@ -47,24 +47,92 @@ class Rock:
     # 원본 바위의 16:9 비율을 유지하면서 현재 점프 높이로 착지 가능하게 조정한다.
     WIDTH = 196
     HEIGHT = 110
+    COLLISION_HEIGHT = 84
+    DRAW_BOTTOM_OFFSET = 5
 
     def __init__(self, image, center_x, ground_y):
         self.image = image
         self.left = center_x - self.WIDTH / 2
         self.right = center_x + self.WIDTH / 2
-        self.top = ground_y + self.HEIGHT
+        self.top = ground_y + self.COLLISION_HEIGHT
         self.bottom = ground_y
 
     def draw(self):
+        draw_bottom = self.bottom - self.DRAW_BOTTOM_OFFSET
         self.image.draw(
             (self.left + self.right) / 2,
-            (self.bottom + self.top) / 2,
+            draw_bottom + self.HEIGHT / 2,
             self.WIDTH,
             self.HEIGHT,
         )
 
     def contains_x(self, x, half_width=26):
         return self.left - half_width < x < self.right + half_width
+
+
+class Bush:
+    """PART 2에서 E키로 숨기 애니메이션을 재생하는 덤불."""
+
+    WIDTH = 330
+    HEIGHT = 160
+    COLUMNS = 4
+    ROWS = 2
+    FRAME_INTERVAL = 0.1
+
+    def __init__(self, static_image, animation_image, center_x, ground_y):
+        self.static_image = static_image
+        self.animation_image = animation_image
+        self.x = center_x
+        self.ground_y = ground_y
+        self.frame = 0
+        self.frame_time = 0.0
+        self.animating = False
+        self.hidden = False
+
+    def can_interact(self, player_x):
+        return abs(player_x - self.x) <= 150
+
+    def start_hide(self):
+        if not self.animating and not self.hidden:
+            self.animating = True
+            self.frame = 0
+            self.frame_time = 0.0
+
+    def update(self, dt):
+        if not self.animating:
+            return
+        self.frame_time += dt
+        if self.frame_time < self.FRAME_INTERVAL:
+            return
+        self.frame_time -= self.FRAME_INTERVAL
+        self.frame += 1
+        if self.frame >= self.COLUMNS * self.ROWS:
+            self.frame = self.COLUMNS * self.ROWS - 1
+            self.animating = False
+            self.hidden = True
+
+    def draw(self):
+        if not self.animating:
+            self.static_image.draw(self.x, self.ground_y + self.HEIGHT / 2, self.WIDTH, self.HEIGHT)
+            return
+        column = self.frame % self.COLUMNS
+        row = self.frame // self.COLUMNS
+        left = column * self.animation_image.w // self.COLUMNS
+        right = (column + 1) * self.animation_image.w // self.COLUMNS
+        top = self.animation_image.h - row * self.animation_image.h // self.ROWS
+        bottom = self.animation_image.h - (row + 1) * self.animation_image.h // self.ROWS
+        self.animation_image.clip_composite_draw(
+            left,
+            bottom,
+            right - left,
+            top - bottom,
+            0,
+            "",
+            self.x,
+            self.ground_y + self.HEIGHT / 2,
+            self.WIDTH,
+            self.HEIGHT,
+        )
 
 
 class Stage1(StageBase):
@@ -76,6 +144,8 @@ class Stage1(StageBase):
     MOVEMENT_UI_NAME = "ui_movement_compact.png"
     ACTION_UI_NAME = "ui_actions_compact.png"
     ROCK_NAME = "tutorial_flat_top_rock.png"
+    BUSH_NAME = "bush_compact_fixed_330x160.png"
+    BUSH_ANIMATION_NAME = "bush_hide_bright_8frames_4x2_330x160.png"
 
     def __init__(self):
         super().__init__()
@@ -85,6 +155,7 @@ class Stage1(StageBase):
         self.movement_ui = None
         self.action_ui = None
         self.rock = None
+        self.bush = None
         self.scale = 1.0
         self.background_left = 0.0
         self.background_bottom = 0.0
@@ -96,6 +167,8 @@ class Stage1(StageBase):
         self.movement_ui = load_image(os.path.join(root, self.MOVEMENT_UI_NAME))
         self.action_ui = load_image(os.path.join(root, self.ACTION_UI_NAME))
         rock_image = load_image(os.path.join(root, self.ROCK_NAME))
+        bush_image = load_image(os.path.join(root, self.BUSH_NAME))
+        bush_animation_image = load_image(os.path.join(root, self.BUSH_ANIMATION_NAME))
         self.scale = min(
             game_framework.SCREEN_WIDTH / self.background.w,
             game_framework.SCREEN_HEIGHT / self.background.h,
@@ -108,6 +181,7 @@ class Stage1(StageBase):
         ) / 2
         self.player = Player(150, self.ground_y)
         self.rock = Rock(rock_image, 720, self.ground_y)
+        self.bush = Bush(bush_image, bush_animation_image, 1010, self.ground_y)
 
     def handle_events(self, events):
         super().handle_events(events)
@@ -115,9 +189,15 @@ class Stage1(StageBase):
             self.interaction_requested = True
 
     def update(self):
+        self.bush.update(1.0 / 60.0)
+        if self.interaction_requested:
+            if self.part == self.PART_ACTION and self.bush.can_interact(self.player.x):
+                self.bush.start_hide()
+            self.interaction_requested = False
         previous_y = self.player.y
         self._prepare_support_surface()
-        self.player.update(1.0 / 60.0, self.held_keys, min_x=35, max_x=1270)
+        if not self.bush.animating:
+            self.player.update(1.0 / 60.0, self.held_keys, min_x=35, max_x=1270)
         self._resolve_rock_collision(previous_y)
         if (
             self.part == self.PART_MOVEMENT
@@ -185,7 +265,10 @@ class Stage1(StageBase):
         )
         if self.part == self.PART_ACTION and self.rock is not None:
             self.rock.draw()
-        self.player.draw()
+        if self.part == self.PART_ACTION and self.bush is not None:
+            self.bush.draw()
+        if self.bush is None or (not self.bush.animating and not self.bush.hidden):
+            self.player.draw()
         if self.part == self.PART_MOVEMENT:
             self.movement_ui.draw(1120, 555, 156, 186)
         else:
