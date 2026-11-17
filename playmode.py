@@ -2,8 +2,7 @@
 
 import os
 
-from pico2d import SDLK_ESCAPE, SDL_KEYDOWN, SDL_KEYUP, load_image
-from pico2d import draw_rectangle
+from pico2d import SDLK_ESCAPE, SDL_KEYDOWN, SDL_KEYUP, draw_rectangle, load_image
 
 import game_framework
 from player import Player
@@ -45,8 +44,9 @@ class StageBase:
 class Rock:
     """Stage 1 PART 2의 평평한 바위 플랫폼."""
 
-    WIDTH = 220
-    HEIGHT = 124
+    # 원본 바위의 16:9 비율을 유지하면서 현재 점프 높이로 착지 가능하게 조정한다.
+    WIDTH = 196
+    HEIGHT = 110
 
     def __init__(self, image, center_x, ground_y):
         self.image = image
@@ -68,7 +68,7 @@ class Rock:
 
 
 class Stage1(StageBase):
-    """평화로운 숲을 사용하는 Movement/Action 튜토리얼."""
+    """공용 숲 배경을 사용하는 Movement/Action 튜토리얼."""
 
     PART_MOVEMENT = 1
     PART_ACTION = 2
@@ -111,7 +111,7 @@ class Stage1(StageBase):
 
     def handle_events(self, events):
         super().handle_events(events)
-        if self.player is not None and self.player.consume_interaction():
+        if self.player.consume_interaction():
             self.interaction_requested = True
 
     def update(self):
@@ -119,7 +119,11 @@ class Stage1(StageBase):
         self._prepare_support_surface()
         self.player.update(1.0 / 60.0, self.held_keys, min_x=35, max_x=1270)
         self._resolve_rock_collision(previous_y)
-        if self.part == self.PART_MOVEMENT and self.player.collision_box[2] >= game_framework.SCREEN_WIDTH:
+        if (
+            self.part == self.PART_MOVEMENT
+            and self.player.collision_box[2] >= game_framework.SCREEN_WIDTH
+            and not self.part_transitioned
+        ):
             self._enter_action_part()
 
     def _prepare_support_surface(self):
@@ -156,15 +160,13 @@ class Stage1(StageBase):
         box_left, box_bottom, box_right, box_top = player.collision_box
         overlaps_height = box_top > rock.bottom and box_bottom < rock.top
         overlaps_width = box_right > rock.left and box_left < rock.right
-        if not player.on_ground and overlaps_height and overlaps_width:
+        if overlaps_height and overlaps_width:
             if player.x < (rock.left + rock.right) / 2:
                 player.x = rock.left - 26
             else:
                 player.x = rock.right + 26
 
     def _enter_action_part(self):
-        if self.part_transitioned:
-            return
         self.part_transitioned = True
         self.part = self.PART_ACTION
         self.player.x = 80

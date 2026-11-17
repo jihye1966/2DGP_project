@@ -90,7 +90,7 @@ START/EXIT 버튼을 표시한다. START를 누르면 UI를 숨기고 문 열림
 
 - `character_normal_8x5_200px.png`: 밝은 숲용 8×5 캐릭터 시트(Idle, Walk, Run, Jump, Slide)
 - `character_dark_matched_8x5_200px.png`: 어두운 숲용 8×5 캐릭터 시트(추후 Stage 2부터 사용)
-- `stage1_forest_color_matched.png`: Stage 1 공용 평화로운 숲 배경
+- `stage1_forest_color_matched.png`: Stage 1 PART 1/2 공용 평화로운 숲 배경
 - `ui_movement_compact.png`, `ui_actions_compact.png`: Stage 1 PART별 조작 안내
 - `tutorial_flat_top_rock.png`: Stage 1 PART 2 착지 가능한 바위
 - `bush_compact_fixed_330x160.png`, `bush_hide_bright_8frames_4x2_330x160.png`: 추후 상호작용/숨기 연출
@@ -155,3 +155,4 @@ START/EXIT 버튼을 표시한다. START를 누르면 UI를 숨기고 문 열림
 - 2026-11-17: Walk는 양끝 정자세인 0번·7번 프레임을 제외한 1~6번 프레임만 반복하고, Run 재생 속도를 20fps로 높였다. Title IDLE에서도 Space 점프와 이동 중 Ctrl 슬라이드 입력을 전달한다.
 - 2026-11-17: 점프 중에도 방향키의 수평 이동을 처리해 방향키와 Space를 동시에 누르는 이동 점프를 지원한다.
 - 2026-11-17: Stage 1을 PART 1 Movement Tutorial과 PART 2 Action Tutorial로 분리하고 공용 배경, PART별 UI, PART 2 바위 플랫폼 및 E 상호작용 요청 구조를 추가했다.
+- 2026-11-17: 이동 중 Ctrl을 누르는 동안 Slide 상태를 유지하고 Ctrl을 놓으면 Walk/Idle로 복귀하도록 확인했다. Stage 1 바위는 원본 16:9 비율을 유지하면서 현재 점프 높이로 착지 가능한 196×110 표시 크기를 사용한다.
