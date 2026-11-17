@@ -182,6 +182,7 @@ class Stage1(StageBase):
         self.background_left = 0.0
         self.background_bottom = 0.0
         self.interaction_requested = False
+        self.e_icon = None
 
     def init(self):
         root = os.path.dirname(__file__)
@@ -191,6 +192,7 @@ class Stage1(StageBase):
         rock_image = load_image(os.path.join(root, self.ROCK_NAME))
         bush_image = load_image(os.path.join(root, self.BUSH_NAME))
         bush_animation_image = load_image(os.path.join(root, self.BUSH_ANIMATION_NAME))
+        self.e_icon = load_image(os.path.join(root, "e_icon_no_yellow_no_sword.png"))
         self.scale = min(
             game_framework.SCREEN_WIDTH / self.background.w,
             game_framework.SCREEN_HEIGHT / self.background.h,
@@ -296,6 +298,8 @@ class Stage1(StageBase):
             self.rock.draw()
         if self.part == self.PART_ACTION and self.bush is not None:
             self.bush.draw()
+            if self.bush.can_interact(self.player.x) and not self.bush.animating:
+                self.e_icon.draw(self.bush.x, 350, 42, 42)
         if self.bush is None or (not self.bush.animating and not self.bush.hidden):
             self.player.draw()
         if self.part == self.PART_MOVEMENT:
@@ -419,7 +423,7 @@ class MushroomPlatform(Platform):
 class ObstaclePlatform(Platform):
     """Stage 2 추격 구간의 그루터기와 바위."""
 
-    def __init__(self, image, center_x, ground_y, width=150, height=105):
+    def __init__(self, image, center_x, ground_y, width=150, height=150):
         super().__init__(
             center_x - width / 2,
             center_x + width / 2,
@@ -602,6 +606,11 @@ class Stage2(StageBase):
     BACKGROUND_S21 = "stage2-1.png"
     BACKGROUND_S22 = "stage2-2.png"
     BACKGROUND_S22_GAP = "stage2_2.png"
+    GROUND_BY_BACKGROUND = {
+        BACKGROUND_S21: 170,
+        BACKGROUND_S22: 205,
+        BACKGROUND_S22_GAP: 205,
+    }
     RETRY_RECT = (430, 275, 850, 445)
     GAP_LEFT = 500
     GAP_RIGHT = 900
@@ -613,6 +622,7 @@ class Stage2(StageBase):
         self.background_scale = 1.0
         self.background_left = 0.0
         self.background_bottom = 0.0
+        self.background_name = None
         self.flower = None
         self.mushroom = None
         self.obstacles = []
@@ -648,6 +658,8 @@ class Stage2(StageBase):
     def _load_background(self, filename):
         root = os.path.dirname(__file__)
         self.background = load_image(os.path.join(root, filename))
+        self.background_name = filename
+        self.ground_y = self.GROUND_BY_BACKGROUND[filename]
         self.background_scale = min(
             game_framework.SCREEN_WIDTH / self.background.w,
             game_framework.SCREEN_HEIGHT / self.background.h,
@@ -704,7 +716,10 @@ class Stage2(StageBase):
             self.flower = FlowerPlatform(690, 850, self.ground_y + 80)
             self.obstacles = self._gap_side_obstacles()
         if reset_player:
-            self._reset_player(80)
+            start_x = 220 if section == self.S22_CHASE_CONTINUE else 80
+            self._reset_player(start_x)
+            if self.beast is not None and self.beast.state == "chasing":
+                self.beast.x = -80 if section == self.S22_CHASE_CONTINUE else 140
         self.held_keys.clear()
 
     def _background_for(self, section):
@@ -922,9 +937,6 @@ class Stage2(StageBase):
         self.interaction_requested = False
         self.beast = None
         self._enter_section(self.S21_FLOWER)
-        self._reset_player(80)
-        if self.beast is not None and self.beast.state == "chasing":
-            self.beast.x = 140
 
     def _draw_background(self):
         self.background.draw(
